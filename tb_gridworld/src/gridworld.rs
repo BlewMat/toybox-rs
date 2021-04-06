@@ -84,7 +84,9 @@ impl FrameState {
     fn size(&self) -> (i32, i32) {
         let height = self.grid.len() as i32;
         let width = self.grid[0].len() as i32;
-        (width, height)
+        //let height = 200;
+        //let width = 200;
+        (width*7, height*7)
     }
     fn from_config(config: &GridWorld) -> FrameState {
         let mut tiles = Vec::new();
@@ -184,11 +186,11 @@ impl toybox_core::Simulation for GridWorld {
 
     /// Compute the size of the grid for determining how big the world should be.
     fn game_size(&self) -> (i32, i32) {
-        //let height = self.grid.len() as i32;
-        //let width = self.grid[0].len() as i32;
-        let height = 200 as i32;
-        let width = 200 as i32;
-        (width, height)
+        let height = self.grid.len() as i32;
+        let width = self.grid[0].len() as i32;
+        //let height = 200 as i32;
+        //let width = 200 as i32;
+        (width*7, height*7)
     }
 
     fn legal_action_set(&self) -> Vec<AleAction> {
