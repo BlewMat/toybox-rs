@@ -1,119 +1,266 @@
 use toybox_core;
 use toybox_core::random;
+use toybox_core::graphics::{Color, Drawable};
+use toybox_core::{AleAction, Direction, Input, QueryError};
 use types::*;
 
 use serde_json;
 use rand::seq::SliceRandom;
+use std::collections::HashMap;
 
-use crate::types::{Othello, State, Player, FrameState};
+use crate::types::{Othello, State, Player, FrameState, TileConfig};
 
+impl TileConfig {
+    fn floor() -> TileConfig {
+        TileConfig {
+            reward: 0,
+            walkable: true,
+            playable: true,
+            terminal: false,
+            color: Color::rgb(0, 255, 0),
+        }
+    }
+    fn player1() -> TileConfig {
+        TileConfig {
+            reward: 1,
+            walkable: true,
+            playable: false,
+            terminal: false,
+            color: Color::black(),
+        }
+    }
+    fn player2() -> TileConfig {
+        TileConfig {
+            reward: 1,
+            walkable: true,
+            playable: false,
+            terminal: false,
+            color: Color::white(),
+        }
+    }
+    fn border() -> TileConfig {
+        TileConfig {
+            reward: 0,
+            walkable: false,
+            playable: false,
+            terminal: false,
+            color: Color::rgb(211, 211, 211),
+        }
+    }
+}
 
 impl Default for Othello {
     fn default() -> Self {
+
+        let mut tiles = HashMap::new();
+        tiles.insert('0', TileConfig::floor());
+        tiles.insert('1', TileConfig::player1());
+        tiles.insert('2', TileConfig::player2());
+        tiles.insert('3', TileConfig::border());
+
         let mut board = [0; 64];
         board[27] = 1;
         board[28] = 2;
         board[35] = 2;
         board[36] = 1;
 
+        let grid = vec![
+            "3333333333".to_owned(),
+            "3000000003".to_owned(),
+            "3000000003".to_owned(),
+            "3000000003".to_owned(),
+            "3000210003".to_owned(),
+            "3000120003".to_owned(),
+            "3000000003".to_owned(),
+            "3000000003".to_owned(),
+            "3000000003".to_owned(),
+            "3333333333".to_owned(),
+        ];
+
         Othello {
+            player_color: Color::rgb(255, 0, 0),
             board,
+            grid,
+            tiles,
             turn: Player::Black,
-            reward_becomes: '0'
+            reward_becomes: '0',
+            //THIS GOES COL, ROW
+            player_start: (4,4),
+            diagonal_support: false,
         }
     }
 }
 
-impl toybox_core::State for State {
-    fn lives(&self) -> i32 {
-        if self.frame.game_over {
-            0
-        } else {
-            1
-        }
-    }
-
-    /// Get the score from the game, i32 allows for negative scores.
-    fn score(&self) -> i32 {
-        self.frame.score
-    }
-
-    /// Get the level from the game.
-    fn level(&self) -> i32 {
-        0
-    }
-
-    /// To update internally to the next state, we pass buttons to internal logic.
-    fn update_mut(&mut self, buttons: Input) {
-        if buttons.is_empty() {
-            return;
-        }
-
-        // NOT COMPLETE
-    }
-
-
-    /// Any state can create a vector of drawable objects to present itself.
-    fn draw(&self) -> Vec<graphics::Drawable> {
-
-        // NOT COMPLETE
-    }
-
-
-    /// Any state can serialize to JSON String.
-    fn to_json(&self) -> String {
-        serde_json::to_string(&self.state).expect("Should be no JSON Serialization Errors.")
-    }
-
-
-    /// Copy this state to save it for later.
-    fn copy(&self) -> Box<dyn toybox_core::State> {
-        Box::new(self.clone())
-    }
-
-
-    /// Submit a query to this state object, returning a JSON String or error message.
-    fn query_json(&self, query: &str, _args: &serde_json::Value) -> Result<String, QueryError> {
-        Ok(match query {
-            "xy" => {
-                let (px, py) = self.frame.player;
-                serde_json::to_string(&(px, py))?
-            }
-            "xyt" => {
-                let (px, py) = self.frame.player;
-                serde_json::to_string(&(px, py, self.frame.step))?
-            }
-            _ => Err(QueryError::NoSuchQuery)?,
-        })
-    }
-}
 
 
 
 impl FrameState {
 
     fn size(&self) -> (i32, i32) {
-        let height = 8;
-        let width = 8;
+        let height = self.grid.len() as i32;
+        let width = self.grid[0].len() as i32;
         (width, height)
     }
 
     fn from_config(config: &Othello) -> FrameState {
 
+        let mut tiles = Vec::new();
+        let mut grid = Vec::new();
+
+        let mut char_to_index = HashMap::new();
+        for (ch, desc) in &config.tiles {
+            let id = tiles.len();
+            char_to_index.insert(ch, id);
+            tiles.push(desc.clone());
+        }
+        for row in &config.grid {
+            let mut grid_row = Vec::new();
+            for ch in row.chars() {
+                let tile_id = char_to_index[&ch];
+                grid_row.push(tile_id);
+            }
+            grid.push(grid_row);
+        }
 
         FrameState {
-            score: 0,
             game_over: false,
+            step: 0,
+            score: 0,
             reward_becomes: char_to_index[&config.reward_becomes],
             board,
-            turn: Player::Black
+            tiles,
+            grid,
+            turn,
+            player: config.player_start
         }
     }
 
-    // NOT COMPLETE
+    //Returns the type of a tile in the grid at a specific index (e.g (0,0) = 3)
+    fn get_tile(&self, tx: i32, ty: i32) -> Option<&TileConfig> {
+        let (w, h) = self.size();
+        if tx < 0 || ty < 0 || tx >= w || ty >= h {
+            return None;
+        }
+        let y = ty as usize;
+        let x = tx as usize;
+        let tile_id = self.grid[y][x];
+        Some(&self.tiles[tile_id])
+    }
 
+    fn walkable(&self, tx: i32, ty: i32) -> bool {
+        self.get_tile(tx, ty).map(|t| t.walkable).unwrap_or(false)
+    }
+
+    fn walk_once(&mut self, dx: i32, dy: i32) {
+        let (px, py) = self.player;
+        let dest = (px + dx, py + dy);
+        if self.walkable(dest.0, dest.1) {
+            self.arrive(dest.0, dest.1)
+        }
+    }
+
+    fn arrive(&mut self, x: i32, y: i32) {
+        self.player = (x, y);
+
+        // check terminal before "collect_reward" which removes the reward from the map.
+        if self.terminal(x, y) {
+            self.game_over = true;
+        }
+
+        // NEED TO CALL A REWARD FUNCTION AFTER A TOKEN IS PLACED, AND TOKENS ARE FLIPPED
+        //self.collect_reward(x, y);
+    }
+
+
+    fn check_move(&mut self) -> bool {
+
+        let (x, y) = self.player;
+
+        let mut valid: bool = false;
+        let mut index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
+
+        let mut token = 0;
+        let mut oppo_token = 0;
+
+        if self.turn == Player::Black {
+            token = 1;
+            oppo_token = 2;
+        } else {
+            token = 2;
+            oppo_token = 1;
+        }
+
+        if board[index] == 0 {
+            let mut legal: bool = false;
+            let adjacent: [usize; 4] = [1, 7, 8, 9];
+            for tile in &adjacent {
+                let mut pos: bool = false;
+
+                if &index >= tile && &index - tile >= 0 {
+                    if board[index - tile] != 0 && board[index - tile] != token {
+                        legal = true;
+                    }
+                }
+
+                if &index + tile < 64 {
+                    if board[index + tile] != 0 && board[index + tile] != token {
+                        legal = true;
+                        pos = true;
+                    }
+                }
+
+                if legal {
+
+                    let mut check = 0;
+
+                    if pos {
+                        if (index + tile < 64){
+                        check = index + tile;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        if (index > *tile) {
+                            check = index - tile;
+                        } else {
+                            continue;
+                        }
+                    }
+
+
+                    while 0 <= check && check < board.len() - 1 && board[check] == oppo_token {
+
+
+                        if pos {
+                            check += tile;
+                        } else {
+                            if check >= *tile {
+                                check -= tile;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        if check % 8 == 7 || check % 8 == 0 {
+                            if board[check] == token {
+                                valid = true;
+                            }
+                            break;
+                        }
+
+                        if board[check] == token {
+                            valid = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        valid
+
+    }
 }
-
 
 
 impl toybox_core::Simulation for Othello {
@@ -139,10 +286,10 @@ impl toybox_core::Simulation for Othello {
             AleAction::LEFT,
             AleAction::RIGHT,
             AleAction::DOWN,
-            AleAction::UPRIGHT,
-            AleAction::UPLEFT,
-            AleAction::DOWNRIGHT,
-            AleAction::DOWNLEFT,
+            //AleAction::UPRIGHT,
+            //AleAction::UPLEFT,
+            //AleAction::DOWNRIGHT,
+            //AleAction::DOWNLEFT,
         ];
         actions.sort();
         actions
@@ -150,7 +297,9 @@ impl toybox_core::Simulation for Othello {
 
     /// Return a tuple of game size in pixels, e.g., (100,100).
     fn game_size(&self) -> (i32, i32) {
-        (8, 8)
+        let height = self.grid.len() as i32;
+        let width = self.grid[0].len() as i32;
+        (width, height)
     }
 
     fn new_state_from_json(
@@ -185,4 +334,113 @@ impl toybox_core::Simulation for Othello {
     fn schema_for_config(&self) -> String {
         panic!("TODO: Othello characters as keys.")
     }
+
 }
+
+
+impl toybox_core::State for State {
+    fn lives(&self) -> i32 {
+        if self.frame.game_over {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Get the score from the game, i32 allows for negative scores.
+    fn score(&self) -> i32 {
+        self.frame.score
+    }
+
+    /// Get the level from the game.
+    fn level(&self) -> i32 {
+        0
+    }
+
+    /// To update internally to the next state, we pass buttons to internal logic.
+    fn update_mut(&mut self, buttons: Input) {
+
+        if buttons.is_empty() {
+            return;
+        }
+
+        self.frame.step += 1;
+
+        // This is pressing the spacebar, this should let you select
+        // where you want to put your new token
+        if buttons.button1 {
+
+            // Check if you are able to place a token here
+            if self.frame.check_move() {
+
+                return;
+                //move is valid, now flip tiles
+            } else {
+                return;
+            }
+
+        }
+
+        if let Some(dir) = Direction::from_input(buttons) {
+                let (dx, dy) = dir.delta();
+                self.frame.walk_once(dx, dy);
+            }
+
+    }
+
+
+    /// Any state can create a vector of drawable objects to present itself.
+    fn draw(&self) -> Vec<graphics::Drawable> {
+
+        let mut output = Vec::new();
+        output.push(Drawable::Clear(Color::black()));
+
+        let (width, height) = self.frame.size();
+        for y in 0..height {
+            for x in 0..width {
+                let tile = self.frame.get_tile(x, y).expect("Tile type should exist!");
+
+                // THIS IS PROBABLY HOW YOU INCREASE THE TILE SIZE (originally, 1, 1)
+                output.push(Drawable::rect(tile.color, x as i32, y as i32, 5, 5));
+            }
+        }
+        output.push(Drawable::rect(
+            self.config.player_color,
+            self.frame.player.0,
+            self.frame.player.1,
+            5,
+            5,
+        ));
+
+        output
+    }
+
+
+    /// Any state can serialize to JSON String.
+    fn to_json(&self) -> String {
+        serde_json::to_string(&self.state).expect("Should be no JSON Serialization Errors.")
+    }
+
+
+    /// Copy this state to save it for later.
+    fn copy(&self) -> Box<dyn toybox_core::State> {
+        Box::new(self.clone())
+    }
+
+
+    /// Submit a query to this state object, returning a JSON String or error message.
+    fn query_json(&self, query: &str, _args: &serde_json::Value) -> Result<String, QueryError> {
+        Ok(match query {
+            "xy" => {
+                let (px, py) = self.frame.player;
+                serde_json::to_string(&(px, py))?
+            }
+            "xyt" => {
+                let (px, py) = self.frame.player;
+                serde_json::to_string(&(px, py, self.frame.step))?
+            }
+            _ => Err(QueryError::NoSuchQuery)?,
+        })
+    }
+}
+
