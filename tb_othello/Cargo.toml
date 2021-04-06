@@ -7,3 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = "*"
+serde_json = "*"
+serde_derive = "*"
+lazy_static = "*"
+schemars = "0.6"
+
+[dependencies.toybox-core]
+version = "*"
+path = "../core"
