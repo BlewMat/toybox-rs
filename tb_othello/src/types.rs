@@ -22,7 +22,7 @@ pub struct TileConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Othello {
     pub player_color: Color,
-    pub board: [i32; 64],
+    pub board: [T; 64],
     pub grid: Vec<String>,
     pub tiles: HashMap<char, TileConfig>,
     pub turn: Player,
@@ -38,7 +38,7 @@ pub struct FrameState {
     pub step: usize,
     pub score: i32,
     pub reward_becomes: usize,
-    pub board: [i32; 64],
+    pub board: [T; 64],
     pub tiles: Vec<TileConfig>,
     pub grid: Vec<Vec<usize>>,
     pub turn: Player,
@@ -51,7 +51,7 @@ pub struct State {
     pub frame: FrameState,
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum Player {
     Black,
     White,

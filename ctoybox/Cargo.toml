@@ -20,6 +20,7 @@ serde_derive = "1"
 amidar = {path = "../tb_amidar", version="*"}
 breakout = {path = "../tb_breakout", version="*"}
 pong = {path = "../tb_pong", version="*"}
+othello = {path = "../tb_othello", version="*"}
 toybox = {path = "../toybox", version="*"}
 schemars = "0.6"
 

@@ -1,12 +1,9 @@
-use toybox_core;
-use toybox_core::random;
 use toybox_core::graphics::{Color, Drawable};
 use toybox_core::{AleAction, Direction, Input, QueryError};
-use types::*;
 
 use serde_json;
-use rand::seq::SliceRandom;
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 use crate::types::{Othello, State, Player, FrameState, TileConfig};
 
@@ -238,13 +235,13 @@ impl FrameState {
                     let mut check = 0;
 
                     if pos {
-                        if (index + tile < 64){
+                        if index + tile < 64{
                         check = index + tile;
                         } else {
                             continue;
                         }
                     } else {
-                        if (index > *tile) {
+                        if index > *tile {
                             check = index - tile;
                         } else {
                             continue;
@@ -319,6 +316,7 @@ impl FrameState {
 
             while 0 <= check_pos && check_pos < (self.board.len() - 1) {
                 pos_tiles[count] = check_pos.try_into().unwrap();
+                //pos_tiles[count] = check_pos;
                 if check_pos + tile < 64 {
                     check_pos += tile;
                 }
@@ -345,6 +343,7 @@ impl FrameState {
             count = 0;
             while 0 <= check_neg && check_neg < self.board.len() - 1 {
                 neg_tiles[count] = check_neg.try_into().unwrap();
+                //neg_tiles[count] = check_neg;
                 if check_neg - tile >= 0 {
                     check_neg -= tile;
                 }
@@ -368,7 +367,7 @@ impl FrameState {
                 count += 1;
             }
 
-            if (neg_valid) {
+            if neg_valid {
                 for item in neg_tiles.iter() {
                     if item != &0 {
                         self.board[*item] = token;
@@ -376,7 +375,7 @@ impl FrameState {
                     }
                 }
             }
-            if (pos_valid) {
+            if pos_valid {
                 for item in pos_tiles.iter() {
                     if item != &0 {
                         self.board[*item] = token;
@@ -510,16 +509,16 @@ impl toybox_core::State for State {
                 // NEED TO CALL A REWARD FUNCTION AFTER A TOKEN IS PLACED, AND TOKENS ARE FLIPPED
                 //self.collect_reward(x, y);
 
-                player1 = self.frame.terminal();
+                let player1 = self.frame.terminal();
 
                 // Change whose turn it is
-                if (self.frame.turn == Player::Black) {
+                if self.frame.turn == Player::Black {
                     self.frame.turn = Player::White;
                 } else {
                     self.frame.turn = Player::Black;
                 }
 
-                player2 = self.frame.terminal();
+                let player2 = self.frame.terminal();
 
                 // if both player 1 and player 2 can't move, end game
                 if player1 && player2{
@@ -550,7 +549,7 @@ impl toybox_core::State for State {
 
 
     /// Any state can create a vector of drawable objects to present itself.
-    fn draw(&self) -> Vec<graphics::Drawable> {
+    fn draw(&self) -> Vec<Drawable> {
 
         let mut output = Vec::new();
         output.push(Drawable::Clear(Color::black()));
@@ -578,7 +577,7 @@ impl toybox_core::State for State {
 
     /// Any state can serialize to JSON String.
     fn to_json(&self) -> String {
-        serde_json::to_string(&self.state).expect("Should be no JSON Serialization Errors.")
+        serde_json::to_string(self).expect("Should be no JSON Serialization Errors.")
     }
 
 
