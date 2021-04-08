@@ -67,6 +67,13 @@ class TestNoCrash(unittest.TestCase):
             config = tb.config_to_json()
             state = tb.state_to_json()
 
+    def test_othello(self):
+        config = None
+        state = None
+        with Toybox("othello") as tb:
+            config = tb.config_to_json()
+            state = tb.state_to_json()
+
 class TestNewQueries(unittest.TestCase):
     def test_amidar(self):
         with Toybox("amidar") as tb:

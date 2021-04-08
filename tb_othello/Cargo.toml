@@ -1,5 +1,5 @@
 [package]
-name = "tb_othello"
+name = "othello"
 version = "0.1.0"
 authors = ["matthewblewett"]
 edition = "2018"

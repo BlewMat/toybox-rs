@@ -151,6 +151,32 @@ impl FrameState {
         self.get_tile(tx, ty).map(|t| t.walkable).unwrap_or(false)
     }
 
+    fn terminal(&mut self) -> bool{
+
+        let mut possible = false;
+
+        let mut count = 0;
+        let mut row = 0;
+        let mut col = 0;
+
+        while count < 64 {
+            row = &count / 8;
+            col = &count - (row * 8);
+
+            if self.check_move(col+1, row+1) {
+                possible = true;
+                break;
+            }
+            count += 1;
+        }
+
+        if possible{
+            false
+        } else {
+            true
+        }
+    }
+
     fn walk_once(&mut self, dx: i32, dy: i32) {
         let (px, py) = self.player;
         let dest = (px + dx, py + dy);
@@ -163,18 +189,16 @@ impl FrameState {
         self.player = (x, y);
 
         // check terminal before "collect_reward" which removes the reward from the map.
-        if self.terminal(x, y) {
-            self.game_over = true;
-        }
+        //if self.terminal(x, y) {
+        //    self.game_over = true;
+        //}
 
         // NEED TO CALL A REWARD FUNCTION AFTER A TOKEN IS PLACED, AND TOKENS ARE FLIPPED
         //self.collect_reward(x, y);
     }
 
 
-    fn check_move(&mut self) -> bool {
-
-        let (x, y) = self.player;
+    fn check_move(&mut self, x: i32, y: i32) -> bool {
 
         let mut valid: bool = false;
         let mut index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
@@ -190,20 +214,20 @@ impl FrameState {
             oppo_token = 1;
         }
 
-        if board[index] == 0 {
+        if self.board[index] == 0 {
             let mut legal: bool = false;
             let adjacent: [usize; 4] = [1, 7, 8, 9];
             for tile in &adjacent {
                 let mut pos: bool = false;
 
                 if &index >= tile && &index - tile >= 0 {
-                    if board[index - tile] != 0 && board[index - tile] != token {
+                    if self.board[index - tile] != 0 && self.board[index - tile] != token {
                         legal = true;
                     }
                 }
 
                 if &index + tile < 64 {
-                    if board[index + tile] != 0 && board[index + tile] != token {
+                    if self.board[index + tile] != 0 && self.board[index + tile] != token {
                         legal = true;
                         pos = true;
                     }
@@ -228,7 +252,7 @@ impl FrameState {
                     }
 
 
-                    while 0 <= check && check < board.len() - 1 && board[check] == oppo_token {
+                    while 0 <= check && check < self.board.len() - 1 && self.board[check] == oppo_token {
 
 
                         if pos {
@@ -242,13 +266,13 @@ impl FrameState {
                         }
 
                         if check % 8 == 7 || check % 8 == 0 {
-                            if board[check] == token {
+                            if self.board[check] == token {
                                 valid = true;
                             }
                             break;
                         }
 
-                        if board[check] == token {
+                        if self.board[check] == token {
                             valid = true;
                             break;
                         }
@@ -256,9 +280,112 @@ impl FrameState {
                 }
             }
         }
-
         valid
+    }
 
+    fn flip_tiles(&mut self) -> i32 {
+        let mut token = 0;
+        let mut oppo_token = 0;
+
+        if self.turn == Player::Black {
+            token = 1;
+            oppo_token = 2;
+        } else {
+            token = 2;
+            oppo_token = 1;
+        }
+
+        let (x, y) = self.player;
+        let mut index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
+
+        self.board[index] = token;
+        let mut reward = 1;
+
+        let adjacent: [usize; 4] = [1, 7, 8, 9];
+        for tile in &adjacent {
+            let mut check_pos = 0;
+            let mut check_neg = 0;
+
+            let mut pos_valid = true;
+            let mut neg_valid = true;
+
+            let mut pos_tiles: [usize; 8] = [0; 8];
+            let mut neg_tiles: [usize; 8] = [0; 8];
+
+            check_pos = index + tile;
+            check_neg = index - tile;
+
+            let mut count = 0;
+
+            while 0 <= check_pos && check_pos < (self.board.len() - 1) {
+                pos_tiles[count] = check_pos.try_into().unwrap();
+                if check_pos + tile < 64 {
+                    check_pos += tile;
+                }
+
+                if check_pos % 8 == 7 || check_pos % 8 == 0 {
+                    if self.board[check_pos] != token {
+                        pos_valid = false;
+                    }
+                    break;
+                }
+
+                if self.board[check_pos] == token {
+                    break;
+                }
+
+                if self.board[check_pos] == 0 {
+                    pos_valid = false;
+                    break;
+                }
+
+                count += 1;
+            }
+
+            count = 0;
+            while 0 <= check_neg && check_neg < self.board.len() - 1 {
+                neg_tiles[count] = check_neg.try_into().unwrap();
+                if check_neg - tile >= 0 {
+                    check_neg -= tile;
+                }
+
+                if check_neg % 8 == 7 || check_neg % 8 == 0 {
+                    if self.board[check_neg] != token {
+                        neg_valid = false;
+                    }
+                    break;
+                }
+
+                if self.board[check_neg] == token {
+                    break;
+                }
+
+                if self.board[check_neg] == 0 {
+                    neg_valid = false;
+                    break;
+                }
+
+                count += 1;
+            }
+
+            if (neg_valid) {
+                for item in neg_tiles.iter() {
+                    if item != &0 {
+                        self.board[*item] = token;
+                        reward += 1;
+                    }
+                }
+            }
+            if (pos_valid) {
+                for item in pos_tiles.iter() {
+                    if item != &0 {
+                        self.board[*item] = token;
+                        reward += 1;
+                    }
+                }
+            }
+        }
+        reward
     }
 }
 
@@ -361,9 +488,11 @@ impl toybox_core::State for State {
     fn update_mut(&mut self, buttons: Input) {
 
         if buttons.is_empty() {
+
             return;
         }
 
+        // Updates frame (by calling draw?)
         self.frame.step += 1;
 
         // This is pressing the spacebar, this should let you select
@@ -371,10 +500,41 @@ impl toybox_core::State for State {
         if buttons.button1 {
 
             // Check if you are able to place a token here
-            if self.frame.check_move() {
+            let (x, y) = self.frame.player;
 
-                return;
-                //move is valid, now flip tiles
+            if self.frame.check_move(x, y) {
+
+                // Move is valid, now flip tiles
+                self.frame.flip_tiles();
+
+                // NEED TO CALL A REWARD FUNCTION AFTER A TOKEN IS PLACED, AND TOKENS ARE FLIPPED
+                //self.collect_reward(x, y);
+
+                player1 = self.frame.terminal();
+
+                // Change whose turn it is
+                if (self.frame.turn == Player::Black) {
+                    self.frame.turn = Player::White;
+                } else {
+                    self.frame.turn = Player::Black;
+                }
+
+                player2 = self.frame.terminal();
+
+                // if both player 1 and player 2 can't move, end game
+                if player1 && player2{
+                    self.frame.game_over = true;
+                }
+
+                // if just player2 can't move, change turn
+                if player2 {
+                    if self.frame.turn == Player::Black {
+                        self.frame.turn = Player::White;
+                    } else {
+                        self.frame.turn = Player::Black;
+                    }
+                }
+
             } else {
                 return;
             }

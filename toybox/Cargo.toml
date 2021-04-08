@@ -11,6 +11,7 @@ breakout = {path = "../tb_breakout", version="*", optional = true}
 space_invaders = {path = "../tb_spaceinvaders", version="*", optional = true}
 gridworld = {path = "../tb_gridworld", version = "*", optional = true}
 pong = {path = "../tb_pong", version = "*", optional = true}
+othello = {path = "../tb_othello", version = "*", optional = true}
 
 [dependencies.toybox-core]
 path = "../core"
