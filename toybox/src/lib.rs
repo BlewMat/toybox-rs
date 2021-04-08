@@ -20,6 +20,8 @@ pub fn get_simulation_by_name(name: &str) -> Result<Box<dyn Simulation>, String>
         "space_invaders" => Ok(Box::new(space_invaders::SpaceInvaders::default())),
         #[cfg(feature = "pong")]
         "pong" => Ok(Box::new(pong::PongConfig::default())),
+        #[cfg(feature = "othello")]
+        "othello" => Ok(Box::new(othello::Othello::default())),
         _ => Err(format!(
             "Cannot construct game: `{}`. Try any of {:?}.",
             name, GAME_LIST
@@ -39,6 +41,8 @@ pub const GAME_LIST: &[&str] = &[
     "pong",
     #[cfg(feature = "gridworld")]
     "gridworld",
+    #[cfg(feature = "othello")]
+    "othello",
 ];
 
 /// Amidar defined in this module.
@@ -56,3 +60,6 @@ extern crate pong;
 /// Space Invaders logic defined in this module.
 #[cfg(feature = "space_invaders")]
 extern crate space_invaders;
+/// Othello
+#[cfg(feature = "othello")]
+extern crate othello;
