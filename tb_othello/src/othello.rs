@@ -552,6 +552,8 @@ impl toybox_core::State for State {
         // where you want to put your new token
         if buttons.button1 {
 
+            println!("Move");
+
             // Check if you are able to place a token here
             let (x, y) = self.frame.player;
 
@@ -614,15 +616,15 @@ impl toybox_core::State for State {
                 let tile = self.frame.get_tile(x, y).expect("Tile type should exist!");
 
                 // THIS IS PROBABLY HOW YOU INCREASE THE TILE SIZE (originally, 1, 1)
-                output.push(Drawable::rect(tile.color, x as i32, y as i32, 5, 5));
+                output.push(Drawable::rect(tile.color, x as i32, y as i32, 1, 1));
             }
         }
         output.push(Drawable::rect(
             self.config.player_color,
             self.frame.player.0,
             self.frame.player.1,
-            5,
-            5,
+            1,
+            1,
         ));
 
         output

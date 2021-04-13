@@ -84,8 +84,7 @@ impl FrameState {
     fn size(&self) -> (i32, i32) {
         let height = self.grid.len() as i32;
         let width = self.grid[0].len() as i32;
-        //let height = 200;
-        //let width = 200;
+
         (width, height)
     }
     fn from_config(config: &GridWorld) -> FrameState {
@@ -188,8 +187,6 @@ impl toybox_core::Simulation for GridWorld {
     fn game_size(&self) -> (i32, i32) {
         let height = self.grid.len() as i32;
         let width = self.grid[0].len() as i32;
-        //let height = 200 as i32;
-        //let width = 200 as i32;
         (width, height)
     }
 
@@ -308,15 +305,15 @@ impl toybox_core::State for State {
         for y in 0..height {
             for x in 0..width {
                 let tile = self.frame.get_tile(x, y).expect("Tile type should exist!");
-                output.push(Drawable::rect(tile.color, x as i32, y as i32, 5, 5));
+                output.push(Drawable::rect(tile.color, x as i32, y as i32, 1, 1));
             }
         }
         output.push(Drawable::rect(
             self.config.player_color,
             self.frame.player.0,
             self.frame.player.1,
-            5,
-            5,
+            1,
+            1,
         ));
 
         output
