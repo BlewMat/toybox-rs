@@ -18,4 +18,4 @@ path = "../core"
 version="*"
 
 [features]
-default = ["amidar", "breakout", "space_invaders", "gridworld", "pong"]
+default = ["amidar", "breakout", "space_invaders", "gridworld", "pong", "othello"]
