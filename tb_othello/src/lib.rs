@@ -8,5 +8,6 @@ extern crate rand;
 #[macro_use]
 extern crate schemars;
 
+
 mod types;
 mod tb_othello;

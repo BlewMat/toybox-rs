@@ -55,11 +55,23 @@ impl Default for Othello {
         tiles.insert('2', TileConfig::player2());
         tiles.insert('3', TileConfig::border());
 
-        let mut board = [0; 64];
-        board[27] = 1;
-        board[28] = 2;
-        board[35] = 2;
-        board[36] = 1;
+        let mut board = vec![0; 64];
+        let mut board_array : [i32; 64] = [0; 64];
+        let mut count = 0;
+        for x in &board {
+            board_array[count] = *x;
+            count += 1;
+        }
+        board_array[27] = 1;
+        board_array[28] = 2;
+        board_array[35] = 2;
+        board_array[36] = 1;
+        let mut count = 0;
+        for item in &board_array{
+            board[count] = *item;
+            count += 1;
+        }
+
 
         let grid = vec![
             "3333333333".to_owned(),
@@ -119,6 +131,13 @@ impl FrameState {
             grid.push(grid_row);
         }
 
+        let mut board = Vec::new();
+        for item in &config.board {
+            board.push(*item);
+        }
+
+        // Need to initialize board, turn
+
         FrameState {
             game_over: false,
             step: 0,
@@ -127,7 +146,7 @@ impl FrameState {
             board,
             tiles,
             grid,
-            turn,
+            turn: config.turn,
             player: config.player_start
         }
     }
@@ -153,8 +172,10 @@ impl FrameState {
         let mut possible = false;
 
         let mut count = 0;
-        let mut row = 0;
-        let mut col = 0;
+        //let mut row = 0;
+        //let mut col = 0;
+        let mut row;
+        let mut col;
 
         while count < 64 {
             row = &count / 8;
@@ -198,10 +219,12 @@ impl FrameState {
     fn check_move(&mut self, x: i32, y: i32) -> bool {
 
         let mut valid: bool = false;
-        let mut index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
+        let index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
 
-        let mut token = 0;
-        let mut oppo_token = 0;
+        //let mut token = 0;
+        let token;
+        //let mut oppo_token = 0;
+        let oppo_token;
 
         if self.turn == Player::Black {
             token = 1;
@@ -211,20 +234,28 @@ impl FrameState {
             oppo_token = 1;
         }
 
-        if self.board[index] == 0 {
+        let mut board_array : [i32; 64] = [0; 64];
+        let mut count = 0;
+        for x in &self.board {
+            board_array[count] = *x;
+            count += 1;
+        }
+
+        if board_array[index] == 0 {
             let mut legal: bool = false;
             let adjacent: [usize; 4] = [1, 7, 8, 9];
             for tile in &adjacent {
                 let mut pos: bool = false;
 
-                if &index >= tile && &index - tile >= 0 {
-                    if self.board[index - tile] != 0 && self.board[index - tile] != token {
+                //if &index >= tile && &index - tile >= 0 {
+                if &index >= tile{
+                    if board_array[index - tile] != 0 && board_array[index - tile] != token {
                         legal = true;
                     }
                 }
 
                 if &index + tile < 64 {
-                    if self.board[index + tile] != 0 && self.board[index + tile] != token {
+                    if board_array[index + tile] != 0 && board_array[index + tile] != token {
                         legal = true;
                         pos = true;
                     }
@@ -232,7 +263,8 @@ impl FrameState {
 
                 if legal {
 
-                    let mut check = 0;
+                    //let mut check = 0;
+                    let mut check;
 
                     if pos {
                         if index + tile < 64{
@@ -249,7 +281,8 @@ impl FrameState {
                     }
 
 
-                    while 0 <= check && check < self.board.len() - 1 && self.board[check] == oppo_token {
+                    //while 0 <= check && check < board_array.len() - 1 && board_array[check] == oppo_token {
+                    while check < board_array.len() - 1 && board_array[check] == oppo_token {
 
 
                         if pos {
@@ -263,13 +296,13 @@ impl FrameState {
                         }
 
                         if check % 8 == 7 || check % 8 == 0 {
-                            if self.board[check] == token {
+                            if board_array[check] == token {
                                 valid = true;
                             }
                             break;
                         }
 
-                        if self.board[check] == token {
+                        if board_array[check] == token {
                             valid = true;
                             break;
                         }
@@ -277,31 +310,44 @@ impl FrameState {
                 }
             }
         }
+
+        let mut count = 0;
+        for item in &board_array{
+            self.board[count] = *item;
+            count += 1;
+        }
         valid
     }
 
     fn flip_tiles(&mut self) -> i32 {
-        let mut token = 0;
-        let mut oppo_token = 0;
+        //let mut token = 0;
+        let token;
 
         if self.turn == Player::Black {
             token = 1;
-            oppo_token = 2;
         } else {
             token = 2;
-            oppo_token = 1;
         }
 
         let (x, y) = self.player;
-        let mut index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
+        let index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
 
-        self.board[index] = token;
+        let mut board_array : [i32; 64] = [0; 64];
+        let mut count = 0;
+        for x in &self.board {
+            board_array[count] = *x;
+            count += 1;
+        }
+
+        board_array[index] = token;
         let mut reward = 1;
 
         let adjacent: [usize; 4] = [1, 7, 8, 9];
         for tile in &adjacent {
-            let mut check_pos = 0;
-            let mut check_neg = 0;
+            //let mut check_pos = 0;
+            //let mut check_neg = 0;
+            let mut check_pos;
+            let mut check_neg;
 
             let mut pos_valid = true;
             let mut neg_valid = true;
@@ -314,7 +360,8 @@ impl FrameState {
 
             let mut count = 0;
 
-            while 0 <= check_pos && check_pos < (self.board.len() - 1) {
+            //while 0 <= check_pos && check_pos < (board_array.len() - 1) {
+            while check_pos < (board_array.len() - 1) {
                 pos_tiles[count] = check_pos.try_into().unwrap();
                 //pos_tiles[count] = check_pos;
                 if check_pos + tile < 64 {
@@ -322,17 +369,17 @@ impl FrameState {
                 }
 
                 if check_pos % 8 == 7 || check_pos % 8 == 0 {
-                    if self.board[check_pos] != token {
+                    if board_array[check_pos] != token {
                         pos_valid = false;
                     }
                     break;
                 }
 
-                if self.board[check_pos] == token {
+                if board_array[check_pos] == token {
                     break;
                 }
 
-                if self.board[check_pos] == 0 {
+                if board_array[check_pos] == 0 {
                     pos_valid = false;
                     break;
                 }
@@ -341,25 +388,26 @@ impl FrameState {
             }
 
             count = 0;
-            while 0 <= check_neg && check_neg < self.board.len() - 1 {
+            //while 0 <= check_neg && check_neg < board_array.len() - 1 {
+            while check_neg < board_array.len() - 1 {
                 neg_tiles[count] = check_neg.try_into().unwrap();
                 //neg_tiles[count] = check_neg;
-                if check_neg - tile >= 0 {
-                    check_neg -= tile;
-                }
+                //if check_neg - tile >= 0 {
+                check_neg -= tile;
+                //}
 
                 if check_neg % 8 == 7 || check_neg % 8 == 0 {
-                    if self.board[check_neg] != token {
+                    if board_array[check_neg] != token {
                         neg_valid = false;
                     }
                     break;
                 }
 
-                if self.board[check_neg] == token {
+                if board_array[check_neg] == token {
                     break;
                 }
 
-                if self.board[check_neg] == 0 {
+                if board_array[check_neg] == 0 {
                     neg_valid = false;
                     break;
                 }
@@ -370,7 +418,7 @@ impl FrameState {
             if neg_valid {
                 for item in neg_tiles.iter() {
                     if item != &0 {
-                        self.board[*item] = token;
+                        board_array[*item] = token;
                         reward += 1;
                     }
                 }
@@ -378,11 +426,17 @@ impl FrameState {
             if pos_valid {
                 for item in pos_tiles.iter() {
                     if item != &0 {
-                        self.board[*item] = token;
+                        board_array[*item] = token;
                         reward += 1;
                     }
                 }
             }
+        }
+
+        let mut count = 0;
+        for item in &board_array{
+            self.board[count] = *item;
+            count += 1;
         }
         reward
     }
@@ -391,7 +445,7 @@ impl FrameState {
 
 impl toybox_core::Simulation for Othello {
     /// Seed simulation.
-    fn reset_seed(&mut self, seed: u32) {
+    fn reset_seed(&mut self, _seed: u32) {
         //No randomness
     }
 
