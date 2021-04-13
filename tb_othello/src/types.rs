@@ -6,15 +6,10 @@ use toybox_core::graphics::Color;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TileConfig {
-    /// What reward (if any) is given or taken by passing this tile?
     pub reward: i32,
-    /// Is this tile walkable by the agent?
     pub walkable: bool,
-    /// Is this playable by an agent?
     pub playable: bool,
-    /// Is this a terminal/goal tile?
     pub terminal: bool,
-    /// What color should this tile be?
     pub color: Color,
 }
 
@@ -23,7 +18,6 @@ pub struct TileConfig {
 pub struct Othello {
     pub player_color: Color,
     pub board: Vec<i32>,
-    //pub board: [i32; 64],
     pub grid: Vec<String>,
     pub tiles: HashMap<char, TileConfig>,
     pub turn: Player,
@@ -39,7 +33,6 @@ pub struct FrameState {
     pub step: usize,
     pub score: i32,
     pub reward_becomes: usize,
-    //pub board: [i32; 64],
     pub board: Vec<i32>,
     pub tiles: Vec<TileConfig>,
     pub grid: Vec<Vec<usize>>,
