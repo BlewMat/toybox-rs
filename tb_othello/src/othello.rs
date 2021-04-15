@@ -4,6 +4,10 @@ use toybox_core::{AleAction, Direction, Input, QueryError};
 use serde_json;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::time::Duration;
+use std::thread::sleep;
+use rand::thread_rng;
+use rand::Rng;
 
 use crate::types::{Othello, State, Player, FrameState, TileConfig};
 
@@ -44,19 +48,28 @@ impl TileConfig {
             color: Color::rgb(211, 211, 211),
         }
     }
+    fn dark_floor() -> TileConfig {
+        TileConfig {
+            reward: 0,
+            walkable: true,
+            playable: true,
+            terminal: false,
+            color: Color::rgb(5, 195, 25),
+        }
+    }
 }
 
 impl Default for Othello {
     fn default() -> Self {
-
         let mut tiles = HashMap::new();
         tiles.insert('0', TileConfig::floor());
         tiles.insert('1', TileConfig::player1());
         tiles.insert('2', TileConfig::player2());
         tiles.insert('3', TileConfig::border());
+        tiles.insert('4', TileConfig::dark_floor());
 
         let mut board = vec![0; 64];
-        let mut board_array : [i32; 64] = [0; 64];
+        let mut board_array: [i32; 64] = [0; 64];
         let mut count = 0;
         for x in &board {
             board_array[count] = *x;
@@ -67,7 +80,7 @@ impl Default for Othello {
         board_array[35] = 2;
         board_array[36] = 1;
         let mut count = 0;
-        for item in &board_array{
+        for item in &board_array {
             board[count] = *item;
             count += 1;
         }
@@ -75,14 +88,14 @@ impl Default for Othello {
 
         let grid = vec![
             "3333333333".to_owned(),
-            "3000000003".to_owned(),
-            "3000000003".to_owned(),
-            "3000000003".to_owned(),
-            "3000210003".to_owned(),
-            "3000120003".to_owned(),
-            "3000000003".to_owned(),
-            "3000000003".to_owned(),
-            "3000000003".to_owned(),
+            "3040404043".to_owned(),
+            "3404040403".to_owned(),
+            "3040404043".to_owned(),
+            "3404120403".to_owned(),
+            "3040214043".to_owned(),
+            "3404040403".to_owned(),
+            "3040404043".to_owned(),
+            "3404040403".to_owned(),
             "3333333333".to_owned(),
         ];
 
@@ -92,19 +105,17 @@ impl Default for Othello {
             grid,
             tiles,
             turn: Player::Black,
-            reward_becomes: '0',
+            player1_becomes: '1',
+            player2_becomes: '2',
             //THIS GOES COL, ROW
-            player_start: (4,4),
+            player_start: (1, 2),
             diagonal_support: false,
         }
     }
 }
 
 
-
-
 impl FrameState {
-
     fn size(&self) -> (i32, i32) {
         let height = self.grid.len() as i32;
         let width = self.grid[0].len() as i32;
@@ -112,7 +123,6 @@ impl FrameState {
     }
 
     fn from_config(config: &Othello) -> FrameState {
-
         let mut tiles = Vec::new();
         let mut grid = Vec::new();
 
@@ -136,18 +146,17 @@ impl FrameState {
             board.push(*item);
         }
 
-        // Need to initialize board, turn
-
         FrameState {
             game_over: false,
             step: 0,
             score: 0,
-            reward_becomes: char_to_index[&config.reward_becomes],
+            player2_becomes: char_to_index[&config.player2_becomes],
+            player1_becomes: char_to_index[&config.player1_becomes],
             board,
             tiles,
             grid,
             turn: config.turn,
-            player: config.player_start
+            player: config.player_start,
         }
     }
 
@@ -167,32 +176,25 @@ impl FrameState {
         self.get_tile(tx, ty).map(|t| t.walkable).unwrap_or(false)
     }
 
-    fn terminal(&mut self) -> bool{
-
-        let mut possible = false;
-
+    fn terminal(&mut self) -> Vec<i32> {
+        
         let mut count = 0;
-        //let mut row = 0;
-        //let mut col = 0;
         let mut row;
         let mut col;
+
+        let mut possible_moves = Vec::new();
 
         while count < 64 {
             row = &count / 8;
             col = &count - (row * 8);
 
-            if self.check_move(col+1, row+1) {
-                possible = true;
-                break;
+            if self.check_move(col + 1, row + 1) {
+                possible_moves.push(col + 1);
+                possible_moves.push(row + 1);
             }
             count += 1;
         }
-
-        if possible{
-            false
-        } else {
-            true
-        }
+        possible_moves
     }
 
     fn walk_once(&mut self, dx: i32, dy: i32) {
@@ -205,25 +207,41 @@ impl FrameState {
 
     fn arrive(&mut self, x: i32, y: i32) {
         self.player = (x, y);
+    }
 
-        // check terminal before "collect_reward" which removes the reward from the map.
-        //if self.terminal(x, y) {
-        //    self.game_over = true;
-        //}
+    fn print_board(&self, board: [i32; 64]) {
+        let mut count = 0;
+        let mut row = 0;
 
-        // NEED TO CALL A REWARD FUNCTION AFTER A TOKEN IS PLACED, AND TOKENS ARE FLIPPED
-        //self.collect_reward(x, y);
+        println!("    0 1 2 3 4 5 6 7");
+        println!("   ----------------");
+
+        for x in &board {
+            if (&count % 7 == 0 && &count > &0) {
+                println!("{} ", x);
+            } else {
+                if &count == &0 {
+                    print!("{} | ", row)
+                }
+                print!("{} ", x);
+            }
+
+            if &count == &7 {
+                count = 0;
+                row += 1;
+            } else {
+                count += 1;
+            }
+        }
     }
 
 
     fn check_move(&mut self, x: i32, y: i32) -> bool {
-
         let mut valid: bool = false;
-        let index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
 
-        //let mut token = 0;
+        let index: usize = (((y - 1) * 8) + (x - 1)).try_into().unwrap();
+
         let token;
-        //let mut oppo_token = 0;
         let oppo_token;
 
         if self.turn == Player::Black {
@@ -234,7 +252,7 @@ impl FrameState {
             oppo_token = 1;
         }
 
-        let mut board_array : [i32; 64] = [0; 64];
+        let mut board_array: [i32; 64] = [0; 64];
         let mut count = 0;
         for x in &self.board {
             board_array[count] = *x;
@@ -248,7 +266,7 @@ impl FrameState {
                 let mut pos: bool = false;
 
                 //if &index >= tile && &index - tile >= 0 {
-                if &index >= tile{
+                if &index >= tile {
                     if board_array[index - tile] != 0 && board_array[index - tile] != token {
                         legal = true;
                     }
@@ -267,8 +285,8 @@ impl FrameState {
                     let mut check;
 
                     if pos {
-                        if index + tile < 64{
-                        check = index + tile;
+                        if index + tile < 64 {
+                            check = index + tile;
                         } else {
                             continue;
                         }
@@ -280,11 +298,8 @@ impl FrameState {
                         }
                     }
 
-
                     //while 0 <= check && check < board_array.len() - 1 && board_array[check] == oppo_token {
                     while check < board_array.len() - 1 && board_array[check] == oppo_token {
-
-
                         if pos {
                             check += tile;
                         } else {
@@ -312,14 +327,15 @@ impl FrameState {
         }
 
         let mut count = 0;
-        for item in &board_array{
+        for item in &board_array {
             self.board[count] = *item;
             count += 1;
         }
+
         valid
     }
 
-    fn flip_tiles(&mut self) -> i32 {
+    fn flip_tiles(&mut self, x:i32, y:i32) -> i32 {
         //let mut token = 0;
         let token;
 
@@ -329,10 +345,22 @@ impl FrameState {
             token = 2;
         }
 
-        let (x, y) = self.player;
-        let index: usize = (((y-1) * 8) + (x-1)).try_into().unwrap();
+        if self.turn == Player::Black {
+            self.grid[y as usize][x as usize] = self.player1_becomes;
+        } else {
+            self.grid[y as usize][x as usize] = self.player2_becomes;
+        }
 
-        let mut board_array : [i32; 64] = [0; 64];
+        let index: usize = (((y - 1) * 8) + (x - 1)).try_into().unwrap();
+        let mut reward;
+        if index == 0 as usize || index == 7 as usize || index == 56 as usize ||
+            index == 63 as usize {
+            reward = 5;
+        } else {
+            reward = 1;
+        }
+
+        let mut board_array: [i32; 64] = [0; 64];
         let mut count = 0;
         for x in &self.board {
             board_array[count] = *x;
@@ -340,12 +368,9 @@ impl FrameState {
         }
 
         board_array[index] = token;
-        let mut reward = 1;
 
         let adjacent: [usize; 4] = [1, 7, 8, 9];
         for tile in &adjacent {
-            //let mut check_pos = 0;
-            //let mut check_neg = 0;
             let mut check_pos;
             let mut check_neg;
 
@@ -360,10 +385,18 @@ impl FrameState {
 
             let mut count = 0;
 
-            //while 0 <= check_pos && check_pos < (board_array.len() - 1) {
             while check_pos < (board_array.len() - 1) {
-                pos_tiles[count] = check_pos.try_into().unwrap();
-                //pos_tiles[count] = check_pos;
+                if board_array[check_pos] == 0 || board_array[check_pos] == token {
+                    if board_array[check_pos] == token {
+                        break;
+                    } else {
+                        pos_valid = false;
+                        break;
+                    }
+                } else {
+                    pos_tiles[count] = check_pos.try_into().unwrap();
+                }
+
                 if check_pos + tile < 64 {
                     check_pos += tile;
                 }
@@ -374,27 +407,25 @@ impl FrameState {
                     }
                     break;
                 }
-
-                if board_array[check_pos] == token {
-                    break;
-                }
-
-                if board_array[check_pos] == 0 {
-                    pos_valid = false;
-                    break;
-                }
-
                 count += 1;
             }
 
             count = 0;
-            //while 0 <= check_neg && check_neg < board_array.len() - 1 {
             while check_neg < board_array.len() - 1 {
-                neg_tiles[count] = check_neg.try_into().unwrap();
-                //neg_tiles[count] = check_neg;
-                //if check_neg - tile >= 0 {
-                check_neg -= tile;
-                //}
+                if board_array[check_neg] == 0 || board_array[check_neg] == token {
+                    if board_array[check_neg] == token {
+                        break;
+                    } else {
+                        neg_valid = false;
+                        break;
+                    }
+                } else {
+                    neg_tiles[count] = check_neg.try_into().unwrap();
+                }
+
+                if check_neg >= *tile {
+                    check_neg -= tile;
+                }
 
                 if check_neg % 8 == 7 || check_neg % 8 == 0 {
                     if board_array[check_neg] != token {
@@ -403,23 +434,26 @@ impl FrameState {
                     break;
                 }
 
-                if board_array[check_neg] == token {
-                    break;
-                }
-
-                if board_array[check_neg] == 0 {
-                    neg_valid = false;
-                    break;
-                }
-
                 count += 1;
             }
 
+            let mut x;
+            let mut y;
             if neg_valid {
                 for item in neg_tiles.iter() {
                     if item != &0 {
                         board_array[*item] = token;
                         reward += 1;
+
+                        x = item / 8;
+                        y = item - (x * 8);
+                        x += 1;
+                        y += 1;
+                        if self.turn == Player::Black {
+                            self.grid[x][y] = self.player1_becomes;
+                        } else {
+                            self.grid[x][y] = self.player2_becomes;
+                        }
                     }
                 }
             }
@@ -428,17 +462,58 @@ impl FrameState {
                     if item != &0 {
                         board_array[*item] = token;
                         reward += 1;
+
+                        x = item / 8;
+                        y = item - (x * 8);
+                        x += 1;
+                        y += 1;
+                        if self.turn == Player::Black {
+                            self.grid[x][y] = self.player1_becomes;
+                        } else {
+                            self.grid[x][y] = self.player2_becomes;
+                        }
                     }
                 }
             }
         }
 
         let mut count = 0;
-        for item in &board_array{
+        for item in &board_array {
             self.board[count] = *item;
             count += 1;
         }
+
+        self.print_board(board_array);
+        println!("reward: {}", reward);
+
         reward
+    }
+
+    fn change_turn(&mut self) {
+        let player1 = self.terminal();
+
+        // Change whose turn it is
+        if self.turn == Player::Black {
+            self.turn = Player::White;
+        } else {
+            self.turn = Player::Black;
+        }
+
+        let player2 = self.terminal();
+
+        // if both player 1 and player 2 can't move, end game
+        if player1.len() == 0 && player2.len() == 0 {
+            self.game_over = true;
+        }
+
+        // if just player2 can't move, change turn
+        if player2.len() == 0 {
+            if self.turn == Player::Black {
+                self.turn = Player::White;
+            } else {
+                self.turn = Player::Black;
+            }
+        }
     }
 }
 
@@ -514,7 +589,6 @@ impl toybox_core::Simulation for Othello {
     fn schema_for_config(&self) -> String {
         panic!("TODO: Othello characters as keys.")
     }
-
 }
 
 
@@ -541,18 +615,41 @@ impl toybox_core::State for State {
     fn update_mut(&mut self, buttons: Input) {
 
         if buttons.is_empty() {
-
             return;
         }
 
-        // Updates frame (by calling draw?)
         self.frame.step += 1;
+
+        // Random agent making a move
+        if self.frame.turn == Player::White {
+
+            sleep(Duration::from_millis(1000));
+
+            let moves = self.frame.terminal();
+
+            let mut rng = thread_rng();
+            let random_move = rng.gen_range(0, moves.len());
+
+            let x;
+            let y;
+            if random_move % 2 == 0 {
+                x = moves[random_move];
+                y = moves[random_move + 1];
+            } else {
+                x = moves[random_move - 1];
+                y = moves[random_move];
+            }
+
+            if self.frame.check_move(x, y) {
+                self.frame.flip_tiles(x, y);
+                self.frame.change_turn();
+            }
+            return;
+        }
 
         // This is pressing the spacebar, this should let you select
         // where you want to put your new token
         if buttons.button1 {
-
-            println!("Move");
 
             // Check if you are able to place a token here
             let (x, y) = self.frame.player;
@@ -560,53 +657,25 @@ impl toybox_core::State for State {
             if self.frame.check_move(x, y) {
 
                 // Move is valid, now flip tiles
-                self.frame.flip_tiles();
+                let reward = self.frame.flip_tiles(x, y);
+                self.frame.score += reward;
 
-                // NEED TO CALL A REWARD FUNCTION AFTER A TOKEN IS PLACED, AND TOKENS ARE FLIPPED
-                //self.collect_reward(x, y);
-
-                let player1 = self.frame.terminal();
-
-                // Change whose turn it is
-                if self.frame.turn == Player::Black {
-                    self.frame.turn = Player::White;
-                } else {
-                    self.frame.turn = Player::Black;
-                }
-
-                let player2 = self.frame.terminal();
-
-                // if both player 1 and player 2 can't move, end game
-                if player1 && player2{
-                    self.frame.game_over = true;
-                }
-
-                // if just player2 can't move, change turn
-                if player2 {
-                    if self.frame.turn == Player::Black {
-                        self.frame.turn = Player::White;
-                    } else {
-                        self.frame.turn = Player::Black;
-                    }
-                }
+                self.frame.change_turn();
 
             } else {
                 return;
             }
-
         }
 
         if let Some(dir) = Direction::from_input(buttons) {
-                let (dx, dy) = dir.delta();
-                self.frame.walk_once(dx, dy);
-            }
-
+            let (dx, dy) = dir.delta();
+            self.frame.walk_once(dx, dy);
+        }
     }
 
 
     /// Any state can create a vector of drawable objects to present itself.
     fn draw(&self) -> Vec<Drawable> {
-
         let mut output = Vec::new();
         output.push(Drawable::Clear(Color::black()));
 
