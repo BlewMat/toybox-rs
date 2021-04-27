@@ -16,8 +16,6 @@ impl TileConfig {
         TileConfig {
             reward: 0,
             walkable: true,
-            playable: true,
-            terminal: false,
             color: Color::rgb(0, 255, 0),
         }
     }
@@ -25,8 +23,6 @@ impl TileConfig {
         TileConfig {
             reward: 1,
             walkable: true,
-            playable: false,
-            terminal: false,
             color: Color::black(),
         }
     }
@@ -34,8 +30,6 @@ impl TileConfig {
         TileConfig {
             reward: 1,
             walkable: true,
-            playable: false,
-            terminal: false,
             color: Color::white(),
         }
     }
@@ -43,8 +37,6 @@ impl TileConfig {
         TileConfig {
             reward: 0,
             walkable: false,
-            playable: false,
-            terminal: false,
             color: Color::rgb(211, 211, 211),
         }
     }
@@ -52,9 +44,14 @@ impl TileConfig {
         TileConfig {
             reward: 0,
             walkable: true,
-            playable: true,
-            terminal: false,
             color: Color::rgb(5, 195, 25),
+        }
+    }
+    fn color_demo() -> TileConfig {
+        TileConfig {
+            reward: 0,
+            walkable: true,
+            color: Color::rgb(255, 0, 0),
         }
     }
 }
@@ -67,6 +64,7 @@ impl Default for Othello {
         tiles.insert('2', TileConfig::player2());
         tiles.insert('3', TileConfig::border());
         tiles.insert('4', TileConfig::dark_floor());
+        tiles.insert('5', TileConfig::color_demo());
 
         let mut board = vec![0; 64];
         let mut board_array: [i32; 64] = [0; 64];
@@ -85,7 +83,6 @@ impl Default for Othello {
             count += 1;
         }
 
-
         let grid = vec![
             "3333333333".to_owned(),
             "3040404043".to_owned(),
@@ -99,6 +96,8 @@ impl Default for Othello {
             "3333333333".to_owned(),
         ];
 
+        let q_table = HashMap::new();
+
         Othello {
             player_color: Color::rgb(255, 0, 0),
             board,
@@ -108,8 +107,9 @@ impl Default for Othello {
             player1_becomes: '1',
             player2_becomes: '2',
             //THIS GOES COL, ROW
-            player_start: (1, 2),
+            player_start: (1, 1),
             diagonal_support: false,
+            q_table,
         }
     }
 }
@@ -157,6 +157,7 @@ impl FrameState {
             grid,
             turn: config.turn,
             player: config.player_start,
+            q_table: config.q_table.clone(),
         }
     }
 
@@ -177,7 +178,6 @@ impl FrameState {
     }
 
     fn terminal(&mut self) -> Vec<i32> {
-        
         let mut count = 0;
         let mut row;
         let mut col;
@@ -217,7 +217,7 @@ impl FrameState {
         println!("   ----------------");
 
         for x in &board {
-            if (&count % 7 == 0 && &count > &0) {
+            if &count % 7 == 0 && &count > &0 {
                 println!("{} ", x);
             } else {
                 if &count == &0 {
@@ -265,23 +265,28 @@ impl FrameState {
             for tile in &adjacent {
                 let mut pos: bool = false;
 
-                //if &index >= tile && &index - tile >= 0 {
                 if &index >= tile {
                     if board_array[index - tile] != 0 && board_array[index - tile] != token {
-                        legal = true;
+                        if (*tile == 1 as usize || *tile == 9 as usize) && index % 8 == 0 {
+                            continue;
+                        } else {
+                            legal = true;
+                        }
                     }
                 }
 
                 if &index + tile < 64 {
                     if board_array[index + tile] != 0 && board_array[index + tile] != token {
-                        legal = true;
-                        pos = true;
+                        if (*tile == 1 as usize || *tile == 9 as usize) && index % 8 == 7 {
+                            continue;
+                        } else {
+                            legal = true;
+                            pos = true;
+                        }
                     }
                 }
 
                 if legal {
-
-                    //let mut check = 0;
                     let mut check;
 
                     if pos {
@@ -298,10 +303,28 @@ impl FrameState {
                         }
                     }
 
-                    //while 0 <= check && check < board_array.len() - 1 && board_array[check] == oppo_token {
                     while check < board_array.len() - 1 && board_array[check] == oppo_token {
+
+                        if check % 8 == 7 || check % 8 == 0 {
+                            if board_array[check] == token {
+                                valid = true;
+                            }
+                            if *tile != 8 as usize{
+                                break;
+                            }
+                            // Originally it was just break, no if statement
+                            //if board_array[check] == 0 {
+                            //    break;
+                            //}
+                            // now should keep going if tile == 8
+                        }
+
                         if pos {
-                            check += tile;
+                            if check + tile < 64 {
+                                check += tile;
+                            } else {
+                                break;
+                            }
                         } else {
                             if check >= *tile {
                                 check -= tile;
@@ -310,17 +333,11 @@ impl FrameState {
                             }
                         }
 
-                        if check % 8 == 7 || check % 8 == 0 {
-                            if board_array[check] == token {
-                                valid = true;
-                            }
-                            break;
-                        }
-
                         if board_array[check] == token {
                             valid = true;
                             break;
                         }
+
                     }
                 }
             }
@@ -335,7 +352,7 @@ impl FrameState {
         valid
     }
 
-    fn flip_tiles(&mut self, x:i32, y:i32) -> i32 {
+    fn flip_tiles(&mut self, x: i32, y: i32, print: bool) -> i32 {
         //let mut token = 0;
         let token;
 
@@ -355,6 +372,8 @@ impl FrameState {
         let mut reward;
         if index == 0 as usize || index == 7 as usize || index == 56 as usize ||
             index == 63 as usize {
+            reward = 20;
+        } else if index < 8 || index > 55 || index % 8 == 0 || index % 8 == 7 {
             reward = 5;
         } else {
             reward = 1;
@@ -386,6 +405,7 @@ impl FrameState {
             let mut count = 0;
 
             while check_pos < (board_array.len() - 1) {
+
                 if board_array[check_pos] == 0 || board_array[check_pos] == token {
                     if board_array[check_pos] == token {
                         break;
@@ -397,21 +417,37 @@ impl FrameState {
                     pos_tiles[count] = check_pos.try_into().unwrap();
                 }
 
-                if check_pos + tile < 64 {
-                    check_pos += tile;
+                if check_pos % 8 == 7 || check_pos % 8 == 0 {
+                    if *tile != 8 as usize{
+                        if board_array[check_pos] != token {
+                            pos_valid = false;
+                        }
+                        break;
+                    } else {
+                        if (check_pos == 0 || check_pos == 7 || check_pos == 56 || check_pos == 63) && board_array[check_pos] != token {
+                            pos_valid = false;
+                            break;
+                        }
+                    }
                 }
 
-                if check_pos % 8 == 7 || check_pos % 8 == 0 {
-                    if board_array[check_pos] != token {
+                if check_pos + tile < 64 {
+                    check_pos += tile;
+                } else {
+                    if board_array[check_pos] == token {
+                        break;
+                    } else {
                         pos_valid = false;
+                        break;
                     }
-                    break;
                 }
+
                 count += 1;
             }
 
             count = 0;
             while check_neg < board_array.len() - 1 {
+
                 if board_array[check_neg] == 0 || board_array[check_neg] == token {
                     if board_array[check_neg] == token {
                         break;
@@ -423,15 +459,29 @@ impl FrameState {
                     neg_tiles[count] = check_neg.try_into().unwrap();
                 }
 
-                if check_neg >= *tile {
-                    check_neg -= tile;
+                if check_neg % 8 == 7 || check_neg % 8 == 0 {
+                    if *tile != 8 as usize{
+                        if board_array[check_neg] != token {
+                            neg_valid = false;
+                        }
+                        break;
+                    } else {
+                        if (check_neg == 0 || check_neg == 7 || check_neg == 56 || check_neg == 63) && board_array[check_neg] != token {
+                            neg_valid = false;
+                            break;
+                        }
+                    }
                 }
 
-                if check_neg % 8 == 7 || check_neg % 8 == 0 {
-                    if board_array[check_neg] != token {
+                if check_neg >= *tile {
+                    check_neg -= tile;
+                } else {
+                    if board_array[check_neg] == token {
+                        break;
+                    } else {
                         neg_valid = false;
+                        break;
                     }
-                    break;
                 }
 
                 count += 1;
@@ -483,9 +533,17 @@ impl FrameState {
             count += 1;
         }
 
-        self.print_board(board_array);
-        println!("reward: {}", reward);
+        if index == 1 || index == 8 as usize || index == 9 as usize ||
+            index == 6 as usize || index == 14 as usize || index == 15 as usize ||
+            index == 48 as usize || index == 49 as usize || index == 57 as usize ||
+            index == 54 as usize || index == 55 as usize || index == 62 as usize {
+            reward = 0;
+        }
 
+        if print {
+            self.print_board(board_array);
+            println!("reward: {}", reward);
+        }
         reward
     }
 
@@ -504,6 +562,34 @@ impl FrameState {
         // if both player 1 and player 2 can't move, end game
         if player1.len() == 0 && player2.len() == 0 {
             self.game_over = true;
+            println!("Game over!");
+
+            let mut black = 0;
+            let mut white = 0;
+
+            for tile in &self.board {
+                if tile == &1 {
+                    black += 1;
+                } else if tile == &2 {
+                    white += 1;
+                }
+            }
+
+            println!("");
+            if black > white {
+                println!("Player 1 wins!");
+                println!("Player 1 tokens = {}", black);
+                println!("Player 2 tokens = {}", white);
+            } else if black < white {
+                println!("Player 2 wins!");
+                println!("Player 2 tokens = {}", white);
+                println!("Player 1 tokens = {}", black);
+            } else {
+                println!("It's a tie!");
+                println!("Player 1 tokens = {}", black);
+                println!("Player 2 tokens = {}", white);
+            }
+
         }
 
         // if just player2 can't move, change turn
@@ -515,6 +601,142 @@ impl FrameState {
             }
         }
     }
+
+
+    fn get_greedy_move(&mut self, max: bool) -> (i32, i32) {
+
+        // Epsilon close to 0 follows Q value more, and random value less
+        let epsilon = 0.2;
+
+        let moves = self.terminal();
+
+        let mut rng = thread_rng();
+        let random_num = rng.gen_range(0.0, 1.0);
+
+        let mut x;
+        let mut y;
+
+        if random_num < epsilon && !max {
+            //println!("Random Action!");
+            //Select random action
+            let mut rng = thread_rng();
+            let random_move = rng.gen_range(0, moves.len());
+
+            if random_move % 2 == 0 {
+                x = moves[random_move];
+                y = moves[random_move + 1];
+            } else {
+                x = moves[random_move - 1];
+                y = moves[random_move];
+            }
+
+            //println!("x: {}", x);
+            //println!("y: {}", y);
+        } else {
+            //Select greedy action
+            let mut index = 0;
+            let mut max_reward = 0.0;
+
+            x = moves[0];
+            y = moves[1];
+
+            // checks if q_table has the state, if not, it adds the state
+            while index < moves.len() {
+                let result = self.q_table.entry((self.board.clone(), (moves[index], moves[index + 1]))).or_insert(1.0);
+
+                if *result > max_reward {
+                    max_reward = *result;
+                    x = moves[index];
+                    y = moves[index + 1];
+                }
+                index += 2;
+            }
+        }
+        (x, y)
+    }
+
+
+    fn update_qtable(&mut self, x: i32, y: i32){
+
+        // Alpha close to 0 makes Q-values change slower
+        let alpha = 0.2;
+        // Gamma close to 1 looks for high rewards in the long term
+        let gamma = 0.8;
+
+        let mut original_state;
+        let mut reward;
+        let mut moves;
+        let mut x1 = x;
+        let mut y1 = y;
+        let mut length;
+
+        while self.terminal().len() != 0 {
+
+            original_state = self.board.clone();
+
+            if self.check_move(x1, y1) {
+
+                reward = self.flip_tiles(x1, y1, false);
+
+                self.turn = Player::Black;
+
+                length = self.terminal().len();
+                if length != 0 {
+                    // THIS IS THE OPPONENTS MOVE
+                    moves = self.get_greedy_move(true);
+                    self.flip_tiles(moves.0, moves.1, false);
+
+                    self.turn = Player::White;
+                    while self.terminal().len() == 0 {
+                        self.turn = Player::Black;
+                        if self.terminal().len() == 0 {
+                            return;
+                        }
+                        moves = self.get_greedy_move(true);
+                        self.flip_tiles(moves.0, moves.1, false);
+                        self.turn = Player::White;
+                    }
+                }
+
+                self.turn = Player::White;
+                if self.terminal().len() == 0 && length == 0 {
+                    return;
+                } else if self.terminal().len() == 0{
+                    while self.terminal().len() == 0 {
+                        self.turn = Player::Black;
+                        if self.terminal().len() == 0 {
+                            return;
+                        }
+                        moves = self.get_greedy_move(true);
+                        self.flip_tiles(moves.0, moves.1, false);
+                        self.turn = Player::White;
+                    }
+                }
+                // Getting the max q_table val for new state
+                moves = self.get_greedy_move(true);
+
+                let new_q = self.q_table.entry((self.board.clone(), (moves.0, moves.1))).or_insert(1.0);
+                let next_move = *new_q;
+
+                let original_q = self.q_table.entry((original_state.clone(), (x1, y1))).or_insert(1.0);
+                //println!("{}", original_q);
+                *original_q += alpha * (reward as f32 + (gamma * next_move) - *original_q);
+                //println!("{}", self.q_table[&(original_state, (x1, y1))]);
+
+
+                moves = self.get_greedy_move(false);
+                x1 = moves.0;
+                y1 = moves.1;
+
+
+            } else {
+                println!("Invalid move by Greedy Agent");
+                return;
+            }
+
+        }
+    }
+
 }
 
 
@@ -613,43 +835,56 @@ impl toybox_core::State for State {
 
     /// To update internally to the next state, we pass buttons to internal logic.
     fn update_mut(&mut self, buttons: Input) {
-
         if buttons.is_empty() {
             return;
         }
 
         self.frame.step += 1;
 
-        // Random agent making a move
+        // Greedy agent making a move
         if self.frame.turn == Player::White {
 
             sleep(Duration::from_millis(1000));
 
-            let moves = self.frame.terminal();
+            let poss_moves = self.frame.terminal();
 
-            let mut rng = thread_rng();
-            let random_move = rng.gen_range(0, moves.len());
+            let original_board = self.frame.board.clone();
+            let original_grid = self.frame.grid.clone();
 
-            let x;
-            let y;
-            if random_move % 2 == 0 {
-                x = moves[random_move];
-                y = moves[random_move + 1];
-            } else {
-                x = moves[random_move - 1];
-                y = moves[random_move];
+            if poss_moves.len() == 0 {
+                self.frame.change_turn();
+                return;
             }
+            let moves = self.frame.get_greedy_move(false);
+            let x = moves.0;
+            let y = moves.1;
+
+            self.frame.update_qtable(x, y);
+
+            self.frame.board = original_board.clone();
+            self.frame.grid = original_grid.clone();
+            self.frame.turn = Player::White;
 
             if self.frame.check_move(x, y) {
-                self.frame.flip_tiles(x, y);
+
+                self.frame.flip_tiles(x, y, true);
+                println!("possible moves: {}", poss_moves.len()/2);
+
                 self.frame.change_turn();
+
             }
-            return;
+
+            //for (entry, result) in &self.frame.q_table {
+            //    println!("{:?} has {}", entry, result);
+            //}
+
         }
 
         // This is pressing the spacebar, this should let you select
         // where you want to put your new token
         if buttons.button1 {
+
+            let moves = self.frame.terminal();
 
             // Check if you are able to place a token here
             let (x, y) = self.frame.player;
@@ -657,11 +892,11 @@ impl toybox_core::State for State {
             if self.frame.check_move(x, y) {
 
                 // Move is valid, now flip tiles
-                let reward = self.frame.flip_tiles(x, y);
+                let reward = self.frame.flip_tiles(x, y, true);
+                println!("possible moves: {}", moves.len()/2);
                 self.frame.score += reward;
 
                 self.frame.change_turn();
-
             } else {
                 return;
             }

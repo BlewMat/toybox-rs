@@ -8,8 +8,6 @@ use toybox_core::graphics::Color;
 pub struct TileConfig {
     pub reward: i32,
     pub walkable: bool,
-    pub playable: bool,
-    pub terminal: bool,
     pub color: Color,
 }
 
@@ -25,6 +23,7 @@ pub struct Othello {
     pub player2_becomes: char,
     pub player_start: (i32, i32),
     pub diagonal_support: bool,
+    pub q_table: HashMap<(Vec<i32>, (i32, i32)), f32>,
 }
 
 
@@ -39,7 +38,8 @@ pub struct FrameState {
     pub tiles: Vec<TileConfig>,
     pub grid: Vec<Vec<usize>>,
     pub turn: Player,
-    pub player: (i32, i32)
+    pub player: (i32, i32),
+    pub q_table: HashMap<(Vec<i32>, (i32, i32)), f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
