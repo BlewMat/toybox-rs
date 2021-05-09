@@ -375,6 +375,8 @@ impl FrameState {
             reward = 20;
         } else if index < 8 || index > 55 || index % 8 == 0 || index % 8 == 7 {
             reward = 5;
+        } else if (index > 9 && index < 14) || (index > 49 && index < 54) || (index % 8 == 1 && index > 9 && index < 49) || (index % 8 == 6 && index > 14 && index < 54){
+            reward = 0;
         } else {
             reward = 1;
         }
